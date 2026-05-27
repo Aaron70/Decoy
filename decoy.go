@@ -2,6 +2,7 @@ package decoy
 
 import (
 	"math/rand/v2"
+	"sync/atomic"
 	"time"
 
 	"github.com/aaron70/decoy/internal/random"
@@ -11,6 +12,7 @@ import (
 type Decoy struct {
 	Rand *rand.Rand
 	randomText *random.RandomText
+	intIncrementals map[string]*atomic.Int64
 }
 
 func NewDecoy(source rand.Source) (*Decoy, error) {
@@ -18,6 +20,7 @@ func NewDecoy(source rand.Source) (*Decoy, error) {
 	d := &Decoy{
 		Rand: rand,
 		randomText: random.NewRandomText(rand, 6),
+		intIncrementals: make(map[string]*atomic.Int64),
 	}
 	return d, nil
 }
@@ -35,6 +38,18 @@ func (d *Decoy) RandomText(maxWords int) string {
 
 func (d *Decoy) RandomInt(min, max int) int {
 	return random.RandomInt(d.Rand, min, max)
+}
+
+func (d *Decoy) NextIncrementalInt(id string, start, step int) int64 {
+	incremental, exists := d.intIncrementals[id]
+	if !exists {
+		incremental = &atomic.Int64{}
+		incremental.Store(int64(start))
+		d.intIncrementals[id] = incremental
+	} else {
+		incremental.Add(int64(step))
+	}
+	return incremental.Load()
 }
 
 func (d *Decoy) RandomChoiceAny(choices ...any) any {
