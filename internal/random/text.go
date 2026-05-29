@@ -48,7 +48,7 @@ func (r *RandomText) NgramsFromWords(words []string) {
 	}
 }
 
-func (r RandomText) RandomText(maxWords int) string {
+func (r *RandomText) RandomText(maxWords int) string {
 	if len(r.ngrams) == 0 {
 		r.NgramsFromString(DefaultRandomTextCorpus)
 	}
