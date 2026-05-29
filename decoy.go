@@ -2,7 +2,7 @@ package decoy
 
 import (
 	"bytes"
-	"html/template"
+	"text/template"
 	"io"
 	"math/rand/v2"
 	"os"
