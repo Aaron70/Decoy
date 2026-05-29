@@ -1,20 +1,21 @@
 package random
 
 import (
+	_ "embed"
 	"maps"
 	"math/rand/v2"
 	"slices"
 	"strings"
-_ "embed"
 )
 
 //go:embed corpus.txt
 var DefaultRandomTextCorpus string
 
 type RandomText struct {
-	Rand             *rand.Rand
-	n                int
-	ngrams           map[string][]string
+	Rand   *rand.Rand
+	n      int
+	ngrams map[string][]string
+	keys   []string
 }
 
 func NewRandomText(rand *rand.Rand, n int) *RandomText {
@@ -46,16 +47,17 @@ func (r *RandomText) NgramsFromWords(words []string) {
 		key := strings.Join(words[i:i+r.n], " ")
 		r.ngrams[key] = append(r.ngrams[key], words[i+r.n])
 	}
+	r.keys = slices.Collect(maps.Keys(r.ngrams))
 }
 
 func (r *RandomText) RandomText(maxWords int) string {
 	if len(r.ngrams) == 0 {
 		r.NgramsFromString(DefaultRandomTextCorpus)
+		r.keys = slices.Collect(maps.Keys(r.ngrams))
 	}
-	keys := slices.Collect(maps.Keys(r.ngrams))
-	words := strings.Fields(RandomChoice(r.Rand, keys...))
-	text := ""
 
+	words := strings.Fields(RandomChoice(r.Rand, r.keys...))
+	text := ""
 	for range maxWords {
 		key := strings.Join(words[len(words)-r.n:], " ")
 		successors, ok := r.ngrams[key]
