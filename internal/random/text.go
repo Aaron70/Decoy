@@ -6,6 +6,7 @@ import (
 	"math/rand/v2"
 	"slices"
 	"strings"
+	"sync"
 )
 
 //go:embed corpus.txt
@@ -16,6 +17,7 @@ type RandomText struct {
 	n      int
 	ngrams map[string][]string
 	keys   []string
+	m      sync.RWMutex
 }
 
 func NewRandomText(rand *rand.Rand, n int) *RandomText {
@@ -27,21 +29,25 @@ func NewRandomText(rand *rand.Rand, n int) *RandomText {
 }
 
 func (r *RandomText) SetNgrams(n int, ngrams map[string][]string) {
+	r.m.Lock()
+	defer r.m.Unlock()
 	r.n = n
 	r.ngrams = ngrams
 }
 
 func (r *RandomText) NgramsFromString(text string) {
-	if len(r.ngrams) != 0 {
-		r.ngrams = make(map[string][]string)
-	}
 	words := strings.Fields(text)
 	r.NgramsFromWords(words)
 }
 
 func (r *RandomText) NgramsFromWords(words []string) {
+	r.m.Lock()
+	defer r.m.Unlock()
 	if len(words) <= r.n {
 		return
+	}
+if len(r.ngrams) != 0 {
+		r.ngrams = make(map[string][]string)
 	}
 	for i := 0; i < len(words)-r.n; i++ {
 		key := strings.Join(words[i:i+r.n], " ")
@@ -53,8 +59,12 @@ func (r *RandomText) NgramsFromWords(words []string) {
 func (r *RandomText) RandomText(maxWords int) string {
 	if len(r.ngrams) == 0 {
 		r.NgramsFromString(DefaultRandomTextCorpus)
+		r.m.Lock()
 		r.keys = slices.Collect(maps.Keys(r.ngrams))
+		r.m.Unlock()
 	}
+	r.m.RLock()
+	defer r.m.RUnlock()
 
 	words := strings.Fields(RandomChoice(r.Rand, r.keys...))
 	text := ""
