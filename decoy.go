@@ -65,22 +65,26 @@ func (d *Decoy) Probability(probability float64) bool {
 	return x <= probability
 }
 
-func (d *Decoy) CurrentIncrementalInt(id string) (int64, error) {
+func (d *Decoy) CurrentIncrementalInt(id string) (int, error) {
+	d.m.RLock()
+	defer d.m.RUnlock()
 	incremental, exists := d.intIncrementals[id]
 	if !exists {
 		return 0, fmt.Errorf("Incremental with id %q doesn't exists", id)
 	}
-	return incremental.Load(), nil
+	return int(incremental.Load()), nil
 }
 
-func (d *Decoy) NextIncrementalInt(id string, start, step int) int64 {
+func (d *Decoy) NextIncrementalInt(id string, start, step int64) int64 {
+	d.m.Lock()
+	defer d.m.Unlock()
 	incremental, exists := d.intIncrementals[id]
 	if !exists {
 		incremental = &atomic.Int64{}
-		incremental.Store(int64(start))
+		incremental.Store(start)
 		d.intIncrementals[id] = incremental
 	} else {
-		incremental.Add(int64(step))
+		d.intIncrementals[id].Add(step)
 	}
 	return incremental.Load()
 }
@@ -148,6 +152,10 @@ func (d *Decoy) coalesceFloat64(elems ...float64) float64 {
 	return coalesce(elems...)
 }
 
+func (d *Decoy) newError(msg string, args ...any) (any, error) {
+	return nil, fmt.Errorf(msg, args...)
+}
+
 type parseTemplateOption func(*parseTemplateConfig) error
 
 type parseTemplateConfig struct {
@@ -202,6 +210,7 @@ func (d *Decoy) DefaultTemplateFuncMaps() template.FuncMap {
 		"CoalesceString":        d.coalesceString,
 		"CoalesceInt":           d.coalesceInt,
 		"CoalesceFloat64":       d.coalesceFloat64,
+		"NewError":              d.newError,
 	}
 }
 
