@@ -33,6 +33,7 @@ func NewDecoy(source rand.Source) (*Decoy, error) {
 		intIncrementals: make(map[string]*atomic.Int64),
 		templates:       make(map[string]*template.Template),
 	}
+	d.LoadDefaultNgrams()
 	return d, nil
 }
 
@@ -43,7 +44,15 @@ func NewDecoyWithSeed(seed uint64) (*Decoy, error) {
 	return NewDecoy(rand.NewPCG(seed, 1))
 }
 
-func (d *Decoy) RandomText(maxWords int) string {
+func (d *Decoy) LoadDefaultNgrams() {
+	d.randomText.NgramsFromString(random.DefaultRandomTextCorpus)
+}
+
+func (d *Decoy) LoadNgramsString(corpus string) {
+	d.randomText.NgramsFromString(corpus)
+}
+
+func (d *Decoy) RandomText(maxWords int) (string, error) {
 	return d.randomText.RandomText(maxWords)
 }
 
