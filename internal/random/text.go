@@ -6,18 +6,18 @@ import (
 	"math/rand/v2"
 	"slices"
 	"strings"
-	"sync"
+
+	"github.com/aaron70/goaty/errors"
 )
 
 //go:embed corpus.txt
 var DefaultRandomTextCorpus string
 
 type RandomText struct {
-	Rand   *rand.Rand
-	n      int
-	ngrams map[string][]string
-	keys   []string
-	m      sync.RWMutex
+	Rand           *rand.Rand
+	n              int
+	ngrams         map[string][]string
+	keys           []string
 }
 
 func NewRandomText(rand *rand.Rand, n int) *RandomText {
@@ -29,8 +29,6 @@ func NewRandomText(rand *rand.Rand, n int) *RandomText {
 }
 
 func (r *RandomText) SetNgrams(n int, ngrams map[string][]string) {
-	r.m.Lock()
-	defer r.m.Unlock()
 	r.n = n
 	r.ngrams = ngrams
 }
@@ -41,12 +39,10 @@ func (r *RandomText) NgramsFromString(text string) {
 }
 
 func (r *RandomText) NgramsFromWords(words []string) {
-	r.m.Lock()
-	defer r.m.Unlock()
 	if len(words) <= r.n {
 		return
 	}
-if len(r.ngrams) != 0 {
+	if len(r.ngrams) != 0 {
 		r.ngrams = make(map[string][]string)
 	}
 	for i := 0; i < len(words)-r.n; i++ {
@@ -56,15 +52,10 @@ if len(r.ngrams) != 0 {
 	r.keys = slices.Collect(maps.Keys(r.ngrams))
 }
 
-func (r *RandomText) RandomText(maxWords int) string {
+func (r *RandomText) RandomText(maxWords int) (string, error) {
 	if len(r.ngrams) == 0 {
-		r.NgramsFromString(DefaultRandomTextCorpus)
-		r.m.Lock()
-		r.keys = slices.Collect(maps.Keys(r.ngrams))
-		r.m.Unlock()
+		return "", errors.New("Ngrams not set")
 	}
-	r.m.RLock()
-	defer r.m.RUnlock()
 
 	words := strings.Fields(RandomChoice(r.Rand, r.keys...))
 	text := ""
@@ -81,5 +72,5 @@ func (r *RandomText) RandomText(maxWords int) string {
 		text += words[len(words)-1]
 	}
 
-	return text
+	return text, nil
 }
