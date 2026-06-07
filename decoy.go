@@ -63,8 +63,11 @@ func (d *Decoy) RandomInt(min, max int) (int, error) {
 	return d.Rand.IntN(max-min) + min, nil
 }
 
-func (d *Decoy) RandomFloat(min, max float64) float64 {
-	return min + d.Rand.Float64()*(max-min)
+func (d *Decoy) RandomFloat(min, max float64) (float64, error) {
+	if min > max {
+		return 0, fmt.Errorf("RandomFloat: min (%f) must be less than or equal to max (%f)", min, max)
+	}
+	return min + d.Rand.Float64()*(max-min), nil
 }
 
 func (d *Decoy) RandomBoolean() bool {
@@ -72,18 +75,24 @@ func (d *Decoy) RandomBoolean() bool {
 }
 
 func (d *Decoy) Probability(probability float64) bool {
-	x := d.RandomFloat(0, 1)
+	if probability <= 0 {
+		return false
+	}
+	if probability >= 1 {
+		return true
+	}
+	x, _ := d.RandomFloat(0, 1)
 	return x < probability
 }
 
-func (d *Decoy) CurrentIncrementalInt(id string, defaultVal int) int {
+func (d *Decoy) CurrentIncrementalInt(id string, defaultVal int64) int64 {
 	d.m.RLock()
 	defer d.m.RUnlock()
 	incremental, exists := d.intIncrementals[id]
 	if !exists {
 		return defaultVal
 	}
-	return int(incremental.Load())
+	return incremental.Load()
 }
 
 func (d *Decoy) NextIncrementalInt(id string, start, step int64) int64 {
@@ -101,10 +110,7 @@ func (d *Decoy) NextIncrementalInt(id string, start, step int64) int64 {
 }
 
 func (d *Decoy) RandomChoiceAny(choices ...any) (any, error) {
-	if len(choices) == 0 {
-		return nil, fmt.Errorf("requires at least one argument")
-	}
-	return RandomChoice(d, choices...), nil
+	return RandomChoice(d, choices...)
 }
 
 func (d *Decoy) ReadFileBytes(path string) ([]byte, error) {

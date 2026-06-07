@@ -16,8 +16,8 @@ Returns a random integer in the range `[min, max)`. Returns an error if `min >= 
 ```
 
 ### `RandomFloat`
-**Signature:** `RandomFloat(min, max float64) float64`  
-Returns a random float64 in the range `[min, max)`.
+**Signature:** `RandomFloat(min, max float64) (float64, error)`  
+Returns a random float64 in the range `[min, max)`. Returns an error if `min > max`.
 
 ```
 {{ RandomFloat 0.0 1.0 }}
@@ -53,7 +53,7 @@ Generates random text using n-gram Markov chains, up to `maxWords` words. Requir
 
 ### `Probability`
 **Signature:** `Probability(probability float64) bool`  
-Returns `true` with probability `p` (0.0 to 1.0), `false` otherwise. Internally uses `x < p` where `x` is a random float in `[0.0, 1.0)`, so `Probability(0.0)` never returns true.
+Returns `true` with probability `p` (0.0 to 1.0), `false` otherwise. Values outside `[0, 1]` are clamped to the nearest bound.
 
 ```
 {{ Probability 0.75 }}
@@ -74,7 +74,7 @@ Returns the next value of a named incremental counter. On first call with a give
 > **Note:** The `start` value is returned on the first call; `step` is applied on every subsequent call. Changing `step` between calls will change the increment for that call only.
 
 ### `CurrentIncrementalInt`
-**Signature:** `CurrentIncrementalInt(id string, defaultVal int) int`  
+**Signature:** `CurrentIncrementalInt(id string, defaultVal int64) int64`  
 Returns the current value of a named incremental counter without advancing it. If the `id` has not been registered yet, returns `defaultVal` instead.
 
 ```
