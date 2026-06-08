@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"math/rand/v2"
 	"os"
 	"sync"
@@ -13,6 +14,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/Masterminds/sprig/v3"
 	"github.com/aaron70/decoy/internal/random"
 	"github.com/aaron70/goaty/validations"
 )
@@ -54,6 +56,25 @@ func (d *Decoy) LoadNgramsString(corpus string) {
 
 func (d *Decoy) RandomText(maxWords int) (string, error) {
 	return d.randomText.RandomText(maxWords)
+}
+
+func (d *Decoy) RandomName() string {
+	return d.randomText.RandomName()
+}
+
+func (d *Decoy) RandomLastName() string {
+	return d.randomText.RandomLastName()
+}
+
+func (d *Decoy) RandomFullName(middleNameProbability float64) string {
+	name := d.RandomName()
+	lastName := d.RandomLastName()
+	middle := d.Probability(middleNameProbability)
+	if middle {
+		return fmt.Sprintf("%s %s %s", name, d.RandomLastName(), lastName)
+	}
+
+	return fmt.Sprintf("%s %s", name, lastName)
 }
 
 func (d *Decoy) RandomInt(min, max int) (int, error) {
@@ -110,6 +131,10 @@ func (d *Decoy) NextIncrementalInt(id string, start, step int64) int64 {
 }
 
 func (d *Decoy) RandomChoiceAny(choices ...any) (any, error) {
+	return RandomChoice(d, choices...)
+}
+
+func (d *Decoy) RandomChoiceList(choices []any) (any, error) {
 	return RandomChoice(d, choices...)
 }
 
@@ -206,32 +231,25 @@ func WithFuncMap(funcs template.FuncMap) parseTemplateOption {
 }
 
 func (d *Decoy) DefaultTemplateFuncMaps() template.FuncMap {
-	return template.FuncMap{
-		"RandomInt":             d.RandomInt,
-		"RandomFloat":           d.RandomFloat,
-		"RandomBoolean":         d.RandomBoolean,
-		"RandomChoice":          d.RandomChoiceAny,
-		"RandomText":            d.RandomText,
-		"Probability":           d.Probability,
-		"NextIncrementalInt":    d.NextIncrementalInt,
-		"CurrentIncrementalInt": d.CurrentIncrementalInt,
-		"EnvVariable":           os.Getenv,
-		"ReadFileString":        d.ReadFileString,
-		"ReadFileBytes":         d.ReadFileBytes,
-		"ReadFileBase64":        d.ReadFileBase64,
-		"JsonUnmarshalString":   d.JsonUnmarshalString,
-		"JsonUnmarshalBytes":    d.JsonUnmarshalBytes,
-		"List":                  d.list,
-		"ListString":            d.listString,
-		"ListInt":               d.listInt,
-		"ListFloat64":           d.listFloat64,
-		"ListBool":              d.listBool,
-		"Coalesce":              d.coalesce,
-		"CoalesceString":        d.coalesceString,
-		"CoalesceInt":           d.coalesceInt,
-		"CoalesceFloat64":       d.coalesceFloat64,
-		"NewError":              d.newError,
+	funcMap := template.FuncMap{
+		"randomInt":             d.RandomInt,
+		"randomFloat":           d.RandomFloat,
+		"randomBoolean":         d.RandomBoolean,
+		"randomChoice":          d.RandomChoiceAny,
+		"randomChoiceList":      d.RandomChoiceList,
+		"randomText":            d.RandomText,
+		"randomName":            d.RandomName,
+		"randomLastName":        d.RandomLastName,
+		"randomFullName":        d.RandomFullName,
+		"probability":           d.Probability,
+		"nextIncrementalInt":    d.NextIncrementalInt,
+		"currentIncrementalInt": d.CurrentIncrementalInt,
+		"readFileString":        d.ReadFileString,
+		"readFileBytes":         d.ReadFileBytes,
+		"readFileBase64":        d.ReadFileBase64,
 	}
+	maps.Insert(funcMap, maps.All(sprig.FuncMap()))
+	return funcMap
 }
 
 func (d *Decoy) compileTemplate(tmpl string, config *parseTemplateConfig) (*template.Template, error) {
