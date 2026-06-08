@@ -165,42 +165,6 @@ func (d *Decoy) JsonUnmarshalString(data string) (map[string]any, error) {
 	return d.JsonUnmarshalBytes([]byte(data))
 }
 
-func (d *Decoy) list(elems ...any) []any                { return elems }
-func (d *Decoy) listString(elems ...string) []string    { return elems }
-func (d *Decoy) listInt(elems ...int) []int             { return elems }
-func (d *Decoy) listFloat64(elems ...float64) []float64 { return elems }
-func (d *Decoy) listBool(elems ...bool) []bool          { return elems }
-
-func coalesce[T comparable](elems ...T) T {
-	var zero T
-	for _, elem := range elems {
-		if elem != zero {
-			return elem
-		}
-	}
-	return zero
-}
-
-func (d *Decoy) coalesce(elems ...any) any {
-	return coalesce(elems...)
-}
-
-func (d *Decoy) coalesceString(elems ...string) string {
-	return coalesce(elems...)
-}
-
-func (d *Decoy) coalesceInt(elems ...int) int {
-	return coalesce(elems...)
-}
-
-func (d *Decoy) coalesceFloat64(elems ...float64) float64 {
-	return coalesce(elems...)
-}
-
-func (d *Decoy) newError(msg string, args ...any) (any, error) {
-	return nil, fmt.Errorf(msg, args...)
-}
-
 type parseTemplateOption func(*parseTemplateConfig) error
 
 type parseTemplateConfig struct {
