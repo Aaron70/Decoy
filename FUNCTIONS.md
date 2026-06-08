@@ -2,7 +2,7 @@
 
 The following functions are available for use inside Go text/templates through the `Decoy` instance. They can be called in any template parsed via `ParseTemplate`, `ParseTemplateString`, or `CompileTemplate`.
 
-> **Sprig functions:** All [Sprig v3](http://masterminds.github.io/sprig/) template functions (date formatting, string manipulation, math, crypto, type conversion, etc.) are also available alongside the functions listed below. For example, Sprig provides `list`, `coalesce`, `env`, `fromJson`, and many other utilities functions.
+> **Sprig functions:** All [Sprig v3](http://masterminds.github.io/sprig/) template functions (date formatting, string manipulation, math, crypto, type conversion, etc.) are also available alongside the functions listed below. For example, Sprig provides `list`, `coalesce`, `env`, `fromJson`, and many other utility functions.
 
 ---
 
@@ -59,7 +59,7 @@ Generates random text using n-gram Markov chains, up to `maxWords` words. Requir
 
 ### `randomName`
 **Signature:** `randomName() string`  
-Returns a random first name from a predifined dataset.
+Returns a random first name from a predefined dataset.
 
 ```
 {{ randomName }}
@@ -67,7 +67,7 @@ Returns a random first name from a predifined dataset.
 
 ### `randomLastName`
 **Signature:** `randomLastName() string`  
-Returns a random last name/surname from a predifined dataset.
+Returns a random last name/surname from a predefined dataset.
 
 ```
 {{ randomLastName }}
