@@ -54,45 +54,77 @@ func (d *Decoy) LoadNgramsString(corpus string) {
 	d.randomText.NgramsFromString(corpus)
 }
 
-func (d *Decoy) RandomText(maxWords int) (string, error) {
-	return d.randomText.RandomText(maxWords)
+func (d *Decoy) randomIntUnsafe(min, max int) int {
+	return d.Rand.IntN(max-min) + min
 }
 
-func (d *Decoy) RandomName() string {
-	return d.randomText.RandomName()
+func (d *Decoy) randomFloatUnsafe(min, max float64) float64 {
+	return min + d.Rand.Float64()*(max-min)
 }
 
-func (d *Decoy) RandomLastName() string {
-	return d.randomText.RandomLastName()
-}
-
-func (d *Decoy) RandomFullName(middleNameProbability float64) string {
-	name := d.RandomName()
-	lastName := d.RandomLastName()
-	middle := d.Probability(middleNameProbability)
-	if middle {
-		return fmt.Sprintf("%s %s %s", name, d.RandomLastName(), lastName)
-	}
-
-	return fmt.Sprintf("%s %s", name, lastName)
+func (d *Decoy) randomBooleanUnsafe() bool {
+	return d.Rand.IntN(2) == 0
 }
 
 func (d *Decoy) RandomInt(min, max int) (int, error) {
 	if min >= max {
 		return 0, fmt.Errorf("min (%d) must be less than max (%d)", min, max)
 	}
-	return d.Rand.IntN(max-min) + min, nil
+	d.m.Lock()
+	defer d.m.Unlock()
+	return d.randomIntUnsafe(min, max), nil
 }
 
 func (d *Decoy) RandomFloat(min, max float64) (float64, error) {
 	if min > max {
 		return 0, fmt.Errorf("RandomFloat: min (%f) must be less than or equal to max (%f)", min, max)
 	}
-	return min + d.Rand.Float64()*(max-min), nil
+	d.m.Lock()
+	defer d.m.Unlock()
+	return d.randomFloatUnsafe(min, max), nil
 }
 
 func (d *Decoy) RandomBoolean() bool {
-	return d.Rand.IntN(2) == 0
+	d.m.Lock()
+	defer d.m.Unlock()
+	return d.randomBooleanUnsafe()
+}
+
+func (d *Decoy) RandomText(maxWords int) (string, error) {
+	d.m.Lock()
+	defer d.m.Unlock()
+	return d.randomText.RandomText(maxWords)
+}
+
+func (d *Decoy) RandomName() string {
+	d.m.Lock()
+	defer d.m.Unlock()
+	return d.randomText.RandomName()
+}
+
+func (d *Decoy) RandomLastName() string {
+	d.m.Lock()
+	defer d.m.Unlock()
+	return d.randomText.RandomLastName()
+}
+
+func (d *Decoy) RandomFullName(middleNameProbability float64) string {
+	d.m.Lock()
+	defer d.m.Unlock()
+	name := d.randomText.RandomName()
+	lastName := d.randomText.RandomLastName()
+	var middle bool
+	if middleNameProbability > 0 {
+		if middleNameProbability >= 1 {
+			middle = true
+		} else {
+			middle = d.randomFloatUnsafe(0, 1) < middleNameProbability
+		}
+	}
+	if middle {
+		return fmt.Sprintf("%s %s %s", name, d.randomText.RandomLastName(), lastName)
+	}
+	return fmt.Sprintf("%s %s", name, lastName)
 }
 
 func (d *Decoy) Probability(probability float64) bool {
@@ -102,8 +134,9 @@ func (d *Decoy) Probability(probability float64) bool {
 	if probability >= 1 {
 		return true
 	}
-	x, _ := d.RandomFloat(0, 1)
-	return x < probability
+	d.m.Lock()
+	defer d.m.Unlock()
+	return d.randomFloatUnsafe(0, 1) < probability
 }
 
 func (d *Decoy) CurrentIncrementalInt(id string, defaultVal int64) int64 {
@@ -131,10 +164,20 @@ func (d *Decoy) NextIncrementalInt(id string, start, step int64) int64 {
 }
 
 func (d *Decoy) RandomChoiceAny(choices ...any) (any, error) {
+	if len(choices) == 0 {
+		return nil, fmt.Errorf("requires at least one argument")
+	}
+	d.m.Lock()
+	defer d.m.Unlock()
 	return RandomChoice(d, choices...)
 }
 
 func (d *Decoy) RandomChoiceList(choices []any) (any, error) {
+	if len(choices) == 0 {
+		return nil, fmt.Errorf("requires at least one argument")
+	}
+	d.m.Lock()
+	defer d.m.Unlock()
 	return RandomChoice(d, choices...)
 }
 
