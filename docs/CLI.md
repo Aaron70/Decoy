@@ -2,7 +2,6 @@
 
 A CLI tool for generating and ingesting mock data using Go templates and configurable runners.
 
----
 
 ## Features
 
@@ -11,8 +10,8 @@ A CLI tool for generating and ingesting mock data using Go templates and configu
 * Runner Engine - Ingest generated data using implemented Runners. See [Runner Engine](#runner-engine) section.
     * Concurrent Execution - You can execute the runner `n` times using multiple goroutines.
 * Persistence - You can save Templates and Runners to reuse later.
+* Mock server - Create mock servers using the Template Engine and the OpenAPI Specification.
 
----
 
 ## Installation
 
@@ -30,44 +29,6 @@ cd decoy-cli
 go build -o decoy ./decoy/main.go
 ```
 
----
-
-## Quick Start
-
-### Store a template
-
-```bash
-decoy template store greet -t 'Hello, {{ coalesce .Name "World" }}!'
-```
-
-### Parse the template
-
-```bash
-decoy template parse greet --data '{ "Name": "Doe" }'
-```
-
-### Store a runner
-
-```bash
-decoy runner store echo -c 'echo User said: "{{ .template }}"' 
-```
-
-### Execute the runner
-
-```bash
-decoy runner run cmd echo greet -v Name=Doe
-```
-
-### Explore the commands
-
-```bash
-decoy template --help
-decoy template parse --help
-decoy runner --help
-decoy runner run --help
-```
-
----
 
 ## Template Engine
 
@@ -112,9 +73,8 @@ Templates use Go's [`text/template`](https://pkg.go.dev/text/template) syntax wi
 | `readFileBytes path` | Read file as bytes | `{{readFileBytes "img.png"}}` |
 | `readFileBase64 path` | Read file as base64 | `{{readFileBase64 "img.png"}}` |
 
-See [decoy's FUNCTIONS.md](https://github.com/aaron70/decoy/blob/main/FUNCTIONS.md) for full details.
+See [decoy's FUNCTIONS.md](FUNCTIONS.md) for full details.
 
----
 
 ## Runner Engine
 
@@ -176,7 +136,6 @@ Configuration example:
 echo "{{.template}}"
 ```
 
----
 
 ## Advanced template example
 
