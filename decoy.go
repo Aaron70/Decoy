@@ -9,6 +9,7 @@ import (
 	"maps"
 	"math/rand/v2"
 	"os"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"text/template"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/aaron70/decoy/internal/random"
+	"github.com/aaron70/goaty/errors"
 	"github.com/aaron70/goaty/validations"
 )
 
@@ -139,6 +141,25 @@ func (d *Decoy) Probability(probability float64) bool {
 	return d.randomFloatUnsafe(0, 1) < probability
 }
 
+func (d *Decoy) SetIncrementalInt(id string, value int64) int64 {
+	d.m.RLock()
+	defer d.m.RUnlock()
+	incremental, exists := d.intIncrementals[id]
+	if !exists {
+		incremental = &atomic.Int64{}
+		d.intIncrementals[id] = incremental
+	}
+	incremental.Store(value)
+	return value
+}
+
+func (d *Decoy) UnsetIncrementalInt(id string) string {
+	d.m.RLock()
+	defer d.m.RUnlock()
+	delete(d.intIncrementals, id)
+	return ""
+}
+
 func (d *Decoy) CurrentIncrementalInt(id string, defaultVal int64) int64 {
 	d.m.RLock()
 	defer d.m.RUnlock()
@@ -208,6 +229,110 @@ func (d *Decoy) JsonUnmarshalString(data string) (map[string]any, error) {
 	return d.JsonUnmarshalBytes([]byte(data))
 }
 
+func (d *Decoy) PaginationOfPage(page, size, total int) (map[string]any, error) {
+	if size <= 0 {
+		return nil, errors.NewError(errors.ErrInvalidArgument, nil, "size must be greater than 0, got %d", size)
+	}
+	if total < 0 {
+		return nil, errors.NewError(errors.ErrInvalidArgument, nil, "total must be greater than or equal to 0, got %d", total)
+	}
+
+	totalPages := (total + size - 1) / size
+
+	if page < 0 {
+		page = totalPages + page
+		if page < 0 {
+			page *= -1
+		}
+	}
+
+	length := 0
+	if page >= 0 && page < totalPages {
+		length = min(size, total-page*size)
+	}
+
+	ids := make([]int, length)
+	id := page * size
+	for i := range length {
+		ids[i] = id
+		id++
+	}
+
+	return map[string]any{
+		"ids":   ids,
+		"page":  page,
+		"size":  size,
+		"total": total,
+	}, nil
+}
+
+func (d *Decoy) PaginationSkip(skip, limit, total int) (map[string]any, error) {
+	if skip < 0 {
+		return nil, errors.NewError(errors.ErrInvalidArgument, nil, "skip must be greater than or equal to 0, got %d", skip)
+	}
+	if limit <= 0 {
+		return nil, errors.NewError(errors.ErrInvalidArgument, nil, "limit must be greater than 0, got %d", limit)
+	}
+	if total < 0 {
+		return nil, errors.NewError(errors.ErrInvalidArgument, nil, "total must be greater than or equal to 0, got %d", total)
+	}
+
+	length := min(limit, max(0, total-skip))
+	ids := make([]int, length)
+	for i := range length {
+		ids[i] = skip + i
+	}
+
+	return map[string]any{
+		"ids":   ids,
+		"skip":  skip,
+		"limit": limit,
+		"total": total,
+	}, nil
+}
+
+func (d *Decoy) PaginationNextToken(token string, limit, total int) (map[string]any, error) {
+	skip := 0
+	if token != "" {
+		b, err := base64.StdEncoding.DecodeString(token)
+		if err != nil {
+			return nil, errors.NewError(errors.ErrInvalidArgument, nil, "invalid token")
+		}
+		skip, err = strconv.Atoi(string(b))
+		if err != nil {
+			return nil, errors.NewError(errors.ErrInvalidArgument, nil, "invalid token")
+		}
+	}
+	if skip < 0 {
+		return nil, errors.NewError(errors.ErrInvalidArgument, nil, "token offset must be non-negative, got %d", skip)
+	}
+	if limit <= 0 {
+		return nil, errors.NewError(errors.ErrInvalidArgument, nil, "limit must be greater than 0, got %d", limit)
+	}
+	if total < 0 {
+		return nil, errors.NewError(errors.ErrInvalidArgument, nil, "total must be greater than or equal to 0, got %d", total)
+	}
+
+	length := min(limit, max(0, total-skip))
+	ids := make([]int, length)
+	for i := range length {
+		ids[i] = skip + i
+	}
+
+	nextSkip := skip + limit
+	var nextToken string
+	if nextSkip < total {
+		nextToken = base64.StdEncoding.EncodeToString([]byte(strconv.Itoa(nextSkip)))
+	}
+
+	return map[string]any{
+		"ids":       ids,
+		"nextToken": nextToken,
+		"limit":     limit,
+		"total":     total,
+	}, nil
+}
+
 type parseTemplateOption func(*parseTemplateConfig) error
 
 type parseTemplateConfig struct {
@@ -251,9 +376,14 @@ func (d *Decoy) DefaultTemplateFuncMaps() template.FuncMap {
 		"probability":           d.Probability,
 		"nextIncrementalInt":    d.NextIncrementalInt,
 		"currentIncrementalInt": d.CurrentIncrementalInt,
+		"setIncrementalInt":     d.SetIncrementalInt,
+		"unsetIncrementalInt":   d.UnsetIncrementalInt,
 		"readFileString":        d.ReadFileString,
 		"readFileBytes":         d.ReadFileBytes,
 		"readFileBase64":        d.ReadFileBase64,
+		"paginationPage":        d.PaginationOfPage,
+		"paginationSkip":        d.PaginationSkip,
+		"paginationToken":       d.PaginationNextToken,
 	}
 	maps.Insert(funcMap, maps.All(sprig.FuncMap()))
 	return funcMap
