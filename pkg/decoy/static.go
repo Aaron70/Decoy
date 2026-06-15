@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aaron70/decoy/internal/random"
-	"github.com/aaron70/decoy/internal/utils"
+	"github.com/aaron70/goaty/utils"
 )
 
 var Default = utils.Must(NewDecoyWithSeed(0))
