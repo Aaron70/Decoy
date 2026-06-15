@@ -117,6 +117,52 @@ Returns the current value of a named incremental counter without advancing it. I
 {{ currentIncrementalInt "counter" 0 }}
 ```
 
+### `setIncrementalInt`
+**Signature:** `setIncrementalInt(id string, value int64) int64`  
+Sets a named incremental counter to a specific value and returns it. If the `id` does not exist, a new counter is created with the given value.
+
+```
+{{ setIncrementalInt "counter" 100 }}
+```
+
+### `unsetIncrementalInt`
+**Signature:** `unsetIncrementalInt(id string) string`  
+Removes a named incremental counter. Subsequent calls to `nextIncrementalInt` with the same `id` will restart from `start`. Always returns an empty string (useful inside templates for its side effect).
+
+```
+{{ unsetIncrementalInt "counter" }}
+```
+
+---
+
+## Pagination
+
+Helper functions that return pagination metadata as a map for use in template output.
+
+### `paginationPage`
+**Signature:** `paginationPage(page, size, total int) (map[string]any, error)`  
+Returns page-based pagination metadata. Negative `page` values count from the end. Returns `{ids, page, size, total}` where `ids` is the list of item indices for that page.
+
+```
+{{ paginationPage 0 20 100 }}
+```
+
+### `paginationSkip`
+**Signature:** `paginationSkip(skip, limit, total int) (map[string]any, error)`  
+Returns offset-based pagination metadata. Returns `{ids, skip, limit, total}` where `ids` is the list of item indices starting from `skip`.
+
+```
+{{ paginationSkip 20 20 100 }}
+```
+
+### `paginationToken`
+**Signature:** `paginationToken(token string, limit, total int) (map[string]any, error)`  
+Returns next-token pagination metadata. The `token` is a base64-encoded offset; pass `""` for the first page. Returns `{ids, nextToken, limit, total}`, where `ids` is the list of item indices and `nextToken` can be passed to subsequent calls.
+
+```
+{{ paginationToken "" 20 100 }}
+```
+
 ---
 
 ## I/O Functions

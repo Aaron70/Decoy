@@ -64,6 +64,16 @@ Templates use Go's [`text/template`](https://pkg.go.dev/text/template) syntax wi
 |---|---|---|
 | `nextIncrementalInt id start step` | Next value of named counter | `{{nextIncrementalInt "c" 1 1}}` |
 | `currentIncrementalInt id default` | Current value (non-advancing) | `{{currentIncrementalInt "c" 0}}` |
+| `setIncrementalInt id value` | Set a named counter to a value | `{{setIncrementalInt "c" 42}}` |
+| `unsetIncrementalInt id` | Remove a named counter | `{{unsetIncrementalInt "c"}}` |
+
+#### Pagination
+
+| Function | Description | Example |
+|---|---|---|
+| `paginationPage page size total` | Paginate by page number; returns `{ids, page, size, total}` | `{{paginationPage 1 20 100}}` |
+| `paginationSkip skip limit total` | Paginate by offset; returns `{ids, skip, limit, total}` | `{{paginationSkip 20 20 100}}` |
+| `paginationToken token limit total` | Paginate by next-token (base64); returns `{ids, nextToken, limit, total}` | `{{paginationToken "" 20 100}}` |
 
 #### I/O
 
