@@ -92,58 +92,37 @@ func (s RestServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 	op := route.Operation
 
 	responses := op.Responses.Map()
+
 	var response *openapi3.ResponseRef
-	if validations.StrIsBlank(selectedResponse) {
-		for selectedResponse, response = range responses {
-			break
-		}
-	} else {
-		var ok bool
-		response, ok = responses[selectedResponse]
-		if !ok {
-			decoyResponse(w, http.StatusNotFound, "Response %q not found for path %s in the given spec", selectedResponse, r.URL.Path)
-			return
-		}
-	}
+	selectedResponse, response = getOrAny(responses, selectedResponse)
 	if response == nil {
-		decoyResponse(w, http.StatusNoContent, "No responses for path %q in the given spec", r.URL.Path)
+		if validations.StrIsBlank(selectedResponse) {
+			decoyResponse(w, http.StatusNoContent, "No responses for path %q in the given spec", r.URL.Path)
+		} else {
+			decoyResponse(w, http.StatusNotFound, "Response %q not found for path %s in the given spec", selectedResponse, r.URL.Path)
+		}
 		return
 	}
 
 	var contentType *openapi3.MediaType
-	if validations.StrIsBlank(selectedContentType) {
-		for selectedContentType, contentType = range response.Value.Content {
-			break
-		}
-	} else {
-		var ok bool
-		contentType, ok = response.Value.Content[selectedContentType]
-		if !ok {
-			decoyResponse(w, http.StatusNotFound, "Content type %q not found in response %q for path %q", selectedContentType, selectedResponse, r.URL.Path)
-			return
-		}
-	}
+	selectedContentType, contentType = getOrAny(response.Value.Content, selectedContentType)
 	if contentType == nil {
-		decoyResponse(w, http.StatusNoContent, "No content types for response %q in path %q", selectedResponse, r.URL.Path)
+		if validations.StrIsBlank(selectedResponse) {
+			decoyResponse(w, http.StatusNoContent, "No content types for response %q in path %q", selectedResponse, r.URL.Path)
+		} else {
+			decoyResponse(w, http.StatusNotFound, "Content type %q not found in response %q for path %q", selectedContentType, selectedResponse, r.URL.Path)
+		}
 		return
 	}
 
-	examples := contentType.Examples
 	var example *openapi3.ExampleRef
-	if validations.StrIsBlank(selectedExample) {
-		for selectedExample, example = range examples {
-			break
-		}
-	} else {
-		var ok bool
-		example, ok = examples[selectedExample]
-		if !ok {
-			decoyResponse(w, http.StatusNotFound, "Example %q not found for content type %q in response %q for path %q", selectedExample, selectedContentType, selectedResponse, r.URL.Path)
-			return
-		}
-	}
+	selectedExample, example = getOrAny(contentType.Examples, selectedExample)
 	if example == nil {
-		decoyResponse(w, http.StatusNoContent, "No examples for content type %q in response %q in path %q", selectedContentType, selectedResponse, r.URL.Path)
+		if validations.StrIsBlank(selectedResponse) {
+			decoyResponse(w, http.StatusNoContent, "No examples for content type %q in response %q in path %q", selectedContentType, selectedResponse, r.URL.Path)
+		} else {
+			decoyResponse(w, http.StatusNotFound, "Example %q not found for content type %q in response %q for path %q", selectedExample, selectedContentType, selectedResponse, r.URL.Path)
+		}
 		return
 	}
 
@@ -152,7 +131,7 @@ func (s RestServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 		value, err = resolveExternalValue(s.Decoy, example.Value.ExternalValue)
 		if err != nil {
 			decoyResponse(w, http.StatusNoContent, "Coudln't resolve the external value for example %s of content type %s from response %s in path %s: %s", selectedExample, selectedContentType, selectedResponse, r.URL.Path, err)
-		return
+			return
 		}
 	}
 
@@ -160,16 +139,15 @@ func (s RestServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(statusCode)
 	w.Header().Set("Content-Type", selectedContentType)
 	if shouldParse {
-		requestContentType := r.URL.Query().Get("Content-Type")
-		var parsedBody any
+		requestContentType := r.Header.Get("Content-Type")
+		var requestBody any
 		if len(bodyBytes) > 0 {
-			requestContentType := r.Header.Get("Content-Type")
 			if strings.HasPrefix(requestContentType, "application/json") {
-				if err := json.Unmarshal(bodyBytes, &parsedBody); err != nil {
-					parsedBody = string(bodyBytes)
+				if err := json.Unmarshal(bodyBytes, &requestBody); err != nil {
+					requestBody = string(bodyBytes)
 				}
 			} else {
-				parsedBody = string(bodyBytes)
+				requestBody = string(bodyBytes)
 			}
 		}
 
@@ -179,7 +157,7 @@ func (s RestServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 				"QueryParams":  parseMapSliceString(r.URL.Query()),
 				"Path":         r.URL.RawPath,
 				"Header":       parseMapSliceString(r.Header),
-				"Body":         parsedBody,
+				"Body":         requestBody,
 				"Content-Type": requestContentType,
 			},
 			"Response": map[string]any{
@@ -292,4 +270,15 @@ func resolveExternalValue(decoy *services.Decoy, rawUrl string) (any, error) {
 	default:
 		return nil, errors.NewError(errors.ErrInvalidArgument, err, "Unsupported shceme %q, valid schemes are: decoy", url.Scheme)
 	}
+}
+
+func getOrAny[T any](options map[string]T, key string) (string, T) {
+	var value T
+	if validations.StrIsBlank(key) {
+		for key, value = range options {
+			return key, value
+		}
+		return "", value
+	}
+	return key, options[key]
 }
