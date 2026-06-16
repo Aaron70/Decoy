@@ -4,7 +4,7 @@ go 1.26.2
 
 require (
 	github.com/Masterminds/sprig/v3 v3.3.0
-	github.com/aaron70/goaty v0.0.0-20260603030410-cb18a32125d3
+	github.com/aaron70/goaty v0.0.0-20260614001533-a5f2c400de66
 	github.com/getkin/kin-openapi v0.140.0
 )
 
