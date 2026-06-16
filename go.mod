@@ -1,7 +1,5 @@
 module github.com/aaron70/decoy
 
-replace github.com/aaron70/goaty => /home/aaronv/personal/development/go/goaty
-
 go 1.26.2
 
 require (
