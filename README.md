@@ -2,7 +2,6 @@
 
 A Go library and CLI tool for generating and ingesting mock/synthetic data using Go templates.
 
-
 ## CLI
 
 ### Features
