@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -126,14 +127,18 @@ func (s RestServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	extraTemplates := make([]string, 0)
+	extraTemplates := make(map[string]string)
+	data := make(map[string]any)
 	value := example.Value.Value
 	if !validations.StrIsBlank(example.Value.ExternalValue) {
-		value, extraTemplates, err = resolveExternalValue(s.Decoy, example.Value.ExternalValue)
+		templateReference, err := resolveExternalValue(s.Decoy, example.Value.ExternalValue)
 		if err != nil {
 			decoyResponse(w, http.StatusNoContent, "Coudln't resolve the external value for example %s of content type %s from response %s in path %s: %s", selectedExample, selectedContentType, selectedResponse, r.URL.Path, err)
 			return
 		}
+		value = templateReference.Tmpl
+		extraTemplates = templateReference.ExtraTemplates
+		data = templateReference.Data
 	}
 
 	statusCode := responseToStatusCode(selectedResponse)
@@ -152,40 +157,32 @@ func (s RestServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		data := map[string]any{
-			"Request": map[string]any{
-				"Method":       r.Method,
-				"QueryParams":  parseMapSliceString(r.URL.Query()),
-				"Path":         r.URL.RawPath,
-				"Header":       parseMapSliceString(r.Header),
-				"Body":         requestBody,
-				"Content-Type": requestContentType,
+
+		maps.Insert(data, maps.All(map[string]any{
+			"request": map[string]any{
+				"method":       r.Method,
+				"queryParams":  parseMapSliceString(r.URL.Query()),
+				"path":         r.URL.RawPath,
+				"header":       parseMapSliceString(r.Header),
+				"body":         requestBody,
+				"content-Type": requestContentType,
 			},
-			"Response": map[string]any{
-				"ContentType": selectedContentType,
-				"StatusCode":  statusCode,
-				"Example":     selectedExample,
+			"response": map[string]any{
+				"contentType": selectedContentType,
+				"statusCode":  statusCode,
+				"example":     selectedExample,
 			},
-		}
+		}))
 		str, ok := value.(string)
 		if !ok {
 			decoyResponse(w, http.StatusInternalServerError, "couldn't parse template example: template example is not a string")
 			return
 		}
-		parseOptions := []decoy.ParseTemplateOption{
+
+		tmpl, err := s.Decoy.Decoy.ParseTemplateString(str,
 			decoy.WithData(data),
-		}
-
-		for _, extraTemplate := range extraTemplates {
-			extraTmpl, err := s.Decoy.TemplateSvc.Get(extraTemplate)
-			if err != nil {
-				decoyResponse(w, http.StatusNotFound, "couldn't find the extra template: %s", err)
-				return
-			}
-			parseOptions = append(parseOptions, decoy.WithExtraTemplate(extraTemplate, extraTmpl.Tmpl))
-		}
-
-		tmpl, err := s.Decoy.Decoy.ParseTemplateString(str, parseOptions...)
+			decoy.WithExtraTemplates(extraTemplates),
+		)
 		if err != nil {
 			decoyResponse(w, http.StatusInternalServerError, "couldn't parse template example: %s", err)
 			return
@@ -267,23 +264,24 @@ func responseToStatusCode(response string) int {
 	return status
 }
 
-func resolveExternalValue(decoy *services.Decoy, rawUrl string) (any, []string, error) {
+func resolveExternalValue(d *services.Decoy, rawUrl string) (decoy.TemplateURLReferenced, error) {
 	url, err := url.Parse(rawUrl)
 	if err != nil {
-		return nil, nil, errors.NewError(errors.ErrInvalidArgument, err, "Malformed external value: %s. Expected a valid URL format.", rawUrl)
+		return decoy.TemplateURLReferenced{}, errors.NewError(errors.ErrInvalidArgument, err, "Malformed external value: %s. Expected a valid URL format.", rawUrl)
 	}
 
 	switch url.Scheme {
 	case "decoy":
-		extraTemplates := strings.Split(url.Query().Get("extraTemplate"), ",")
-		name := strings.Trim(url.Path, "/")
-		template, err := decoy.TemplateSvc.Get(name)
-		if err != nil {
-			return nil, nil, err
+		resolver := func(name string) (string, error) {
+			tmpl, err := d.TemplateSvc.Get(name)
+			if err != nil {
+				return "", err
+			}
+			return tmpl.Tmpl, err
 		}
-		return template.Tmpl, extraTemplates, nil
+		return decoy.Default.ResolveTemplateURL(resolver, rawUrl)
 	default:
-		return nil, nil, errors.NewError(errors.ErrInvalidArgument, err, "Unsupported shceme %q, valid schemes are: decoy", url.Scheme)
+		return decoy.TemplateURLReferenced{}, errors.NewError(errors.ErrInvalidArgument, err, "Unsupported shceme %q, valid schemes are: decoy", url.Scheme)
 	}
 }
 

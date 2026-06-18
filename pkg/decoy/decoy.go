@@ -8,8 +8,10 @@ import (
 	"io"
 	"maps"
 	"math/rand/v2"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"text/template"
@@ -19,6 +21,12 @@ import (
 	"github.com/aaron70/decoy/internal/random"
 	"github.com/aaron70/goaty/errors"
 	"github.com/aaron70/goaty/validations"
+)
+
+const (
+	DECOY_URL_SCHEME           = "decoy"
+	QUERY_PARAM_EXTRA_TEMPLATE = "extraTemplate"
+	QUERY_PARAM_VALUE          = "value"
 )
 
 type Decoy struct {
@@ -336,10 +344,10 @@ func (d *Decoy) PaginationNextToken(token string, limit, total int) (map[string]
 type ParseTemplateOption func(*parseTemplateConfig) error
 
 type parseTemplateConfig struct {
-	Name  string
-	Funcs template.FuncMap
+	Name      string
+	Funcs     template.FuncMap
 	Templates map[string]string
-	Data  any
+	Data      any
 }
 
 func WithName(name string) ParseTemplateOption {
@@ -482,4 +490,58 @@ func (d *Decoy) ParseTemplateString(tmpl string, options ...ParseTemplateOption)
 		return "", err
 	}
 	return str.String(), nil
+}
+
+type TemplateURLReferenced struct {
+	Tmpl           string
+	ExtraTemplates map[string]string
+	Data           map[string]any
+}
+
+func (d *Decoy) ResolveTemplateURL(resolver func(string) (string, error), rawUrl string) (TemplateURLReferenced, error) {
+	url, err := url.Parse(rawUrl)
+	if err != nil {
+		return TemplateURLReferenced{}, err
+	}
+
+	if url.Scheme != DECOY_URL_SCHEME {
+		return TemplateURLReferenced{}, errors.NewError(errors.ErrInvalidArgument, nil, "Invalid scheme expected %q, got: %s", DECOY_URL_SCHEME, url.Scheme)
+	}
+
+	templateName := strings.TrimLeft(url.Path, "/")
+	if validations.StrIsBlank(templateName) {
+		return TemplateURLReferenced{}, errors.NewError(errors.ErrInvalidArgument, nil, "The template name can't be blank")
+	}
+
+	tmpl, err := resolver(templateName)
+	if err != nil {
+		return TemplateURLReferenced{}, errors.NewError(nil, err, "Couldn't resolve the template")
+	}
+
+	extraTemplatesNames := strings.Split(url.Query().Get(QUERY_PARAM_EXTRA_TEMPLATE), ",")
+	extraTemplates := make(map[string]string, len(extraTemplatesNames))
+	for _, extraTemplateName := range extraTemplatesNames {
+		extraTemplate, err := resolver(extraTemplateName)
+		if err != nil {
+			return TemplateURLReferenced{}, errors.NewError(nil, err, "Couldn't resolve extra template")
+		}
+		extraTemplates[extraTemplateName] = extraTemplate
+	}
+
+	values := strings.Split(url.Query().Get(QUERY_PARAM_VALUE), ",")
+	data := make(map[string]any)
+	for _, value := range values {
+		if validations.StrIsBlank(value) { continue }
+		keyValue := strings.Split(value, "=") 
+		if len(keyValue) != 2 {
+			return TemplateURLReferenced{}, errors.NewError(errors.ErrInvalidArgument, nil, "Invalid value %q, expected format: key=value", value)
+		}
+		data[keyValue[0]] = keyValue[1]
+	}
+
+	return TemplateURLReferenced{
+		Tmpl: tmpl,
+		ExtraTemplates: extraTemplates,
+		Data: data,
+	}, nil
 }
