@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/aaron70/decoy/internal/services"
 	"github.com/aaron70/decoy/internal/utils"
@@ -37,7 +38,7 @@ decoy template store "greet" -t 'Hello, {{ coalesce .Name "World" }}'
 				if err != nil {
 					return err
 				}
-				tmpl = string(bytes)
+				tmpl = strings.TrimRight(string(bytes), "\n")
 			} else if !cmd.Flags().Changed("template") {
 				tmpl, err = utils.ReadStringFrom(cmd.InOrStdin())
 				if err != nil {

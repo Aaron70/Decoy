@@ -15,6 +15,7 @@ import (
 
 func CreateParseCommand(cli *services.Decoy) *cobra.Command {
 	var (
+		extraTemplatesNames    []string
 		name, tmpl, file, data string
 		err                    error
 		stringValues           map[string]string
@@ -79,10 +80,20 @@ decoy parse -f /path/to/template -v Name=Doe
 
 			parsedTemplate := bytes.NewBufferString("")
 
+			extraTemplates := make(map[string]string, len(extraTemplatesNames))
+			for _, extraTemplate := range extraTemplatesNames {
+				extraTmpl, err := cli.TemplateSvc.Get(extraTemplate)
+				if err != nil {
+					return err
+				}
+				extraTemplates[extraTemplate] = extraTmpl.Tmpl
+			}
+
 			err = cli.Decoy.ParseTemplate(parsedTemplate, tmpl,
-				decoy.WithFuncMap(decoy.Default.DefaultTemplateFuncMaps()),
+				decoy.WithFuncMap(cli.Decoy.DefaultTemplateFuncMaps()),
 				decoy.WithData(jsonData),
-				decoy.WithTemplateNamed(name),
+				decoy.WithName(name),
+				decoy.WithExtraTemplates(extraTemplates),
 			)
 			if !strings.HasSuffix(parsedTemplate.String(), "\n") {
 				fmt.Fprintf(cmd.OutOrStdout(), "%s\n", parsedTemplate.String())
@@ -96,6 +107,8 @@ decoy parse -f /path/to/template -v Name=Doe
 	command.Flags().StringVarP(&tmpl, "template", "t", "", "The content of the template to parse")
 	command.Flags().StringVarP(&file, "file", "f", "", "The path of the file with the template contents to parse")
 	command.MarkFlagsMutuallyExclusive("template", "file")
+
+	command.Flags().StringSliceVarP(&extraTemplatesNames, "extraTemplate", "x", make([]string, 0, 5), "Extra templates to parse so they can be used (nested) within the main template")
 
 	command.Flags().StringVarP(&data, "data", "d", "{}", "The JSON data to be used within the template")
 	command.Flags().StringToStringVarP(&stringValues, "value", "v", map[string]string{}, "A set of pairs (key=value) to inject into the data")

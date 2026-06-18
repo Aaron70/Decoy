@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/aaron70/decoy/internal/services"
 	"github.com/aaron70/decoy/internal/utils"
@@ -29,7 +30,7 @@ func createStoreCommand(decoy *services.Decoy) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				spec = string(bytes)
+				spec = strings.TrimRight(string(bytes), "\n")
 			} else if !cmd.Flags().Changed("spec") {
 				spec, err = utils.ReadStringFrom(cmd.InOrStdin())
 				if err != nil {

@@ -333,31 +333,49 @@ func (d *Decoy) PaginationNextToken(token string, limit, total int) (map[string]
 	}, nil
 }
 
-type parseTemplateOption func(*parseTemplateConfig) error
+type ParseTemplateOption func(*parseTemplateConfig) error
 
 type parseTemplateConfig struct {
 	Name  string
 	Funcs template.FuncMap
+	Templates map[string]string
 	Data  any
 }
 
-func WithTemplateNamed(name string) parseTemplateOption {
+func WithName(name string) ParseTemplateOption {
 	return func(ptc *parseTemplateConfig) error {
 		ptc.Name = name
 		return nil
 	}
 }
 
-func WithData(data any) parseTemplateOption {
+func WithData(data any) ParseTemplateOption {
 	return func(ptc *parseTemplateConfig) error {
 		ptc.Data = data
 		return nil
 	}
 }
 
-func WithFuncMap(funcs template.FuncMap) parseTemplateOption {
+func WithFuncMap(funcs template.FuncMap) ParseTemplateOption {
 	return func(ptc *parseTemplateConfig) error {
 		ptc.Funcs = funcs
+		return nil
+	}
+}
+
+func WithExtraTemplate(name, tmpl string) ParseTemplateOption {
+	return func(ptc *parseTemplateConfig) error {
+		if ptc.Templates == nil {
+			ptc.Templates = make(map[string]string)
+		}
+		ptc.Templates[name] = tmpl
+		return nil
+	}
+}
+
+func WithExtraTemplates(extraTemplates map[string]string) ParseTemplateOption {
+	return func(ptc *parseTemplateConfig) error {
+		ptc.Templates = extraTemplates
 		return nil
 	}
 }
@@ -397,6 +415,13 @@ func (d *Decoy) compileTemplate(tmpl string, config *parseTemplateConfig) (*temp
 		return nil, err
 	}
 
+	for name, tmpl := range config.Templates {
+		_, err = t.New(name).Parse(tmpl)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	if validations.StrIsBlank(config.Name) {
 		return t, nil
 	}
@@ -408,7 +433,7 @@ func (d *Decoy) compileTemplate(tmpl string, config *parseTemplateConfig) (*temp
 	return t, nil
 }
 
-func (d *Decoy) CompileTemplate(tmpl string, options ...parseTemplateOption) (*template.Template, error) {
+func (d *Decoy) CompileTemplate(tmpl string, options ...ParseTemplateOption) (*template.Template, error) {
 	config := &parseTemplateConfig{
 		Funcs: d.DefaultTemplateFuncMaps(),
 	}
@@ -422,7 +447,7 @@ func (d *Decoy) CompileTemplate(tmpl string, options ...parseTemplateOption) (*t
 	return d.compileTemplate(tmpl, config)
 }
 
-func (d *Decoy) ParseTemplate(w io.Writer, tmpl string, options ...parseTemplateOption) error {
+func (d *Decoy) ParseTemplate(w io.Writer, tmpl string, options ...ParseTemplateOption) error {
 	var (
 		err      error
 		template *template.Template
@@ -450,7 +475,7 @@ func (d *Decoy) ParseTemplate(w io.Writer, tmpl string, options ...parseTemplate
 	return template.Execute(w, config.Data)
 }
 
-func (d *Decoy) ParseTemplateString(tmpl string, options ...parseTemplateOption) (string, error) {
+func (d *Decoy) ParseTemplateString(tmpl string, options ...ParseTemplateOption) (string, error) {
 	str := bytes.NewBufferString("")
 	err := d.ParseTemplate(str, tmpl, options...)
 	if err != nil {

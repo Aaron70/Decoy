@@ -126,9 +126,10 @@ func (s RestServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	extraTemplates := make([]string, 0)
 	value := example.Value.Value
 	if !validations.StrIsBlank(example.Value.ExternalValue) {
-		value, err = resolveExternalValue(s.Decoy, example.Value.ExternalValue)
+		value, extraTemplates, err = resolveExternalValue(s.Decoy, example.Value.ExternalValue)
 		if err != nil {
 			decoyResponse(w, http.StatusNoContent, "Coudln't resolve the external value for example %s of content type %s from response %s in path %s: %s", selectedExample, selectedContentType, selectedResponse, r.URL.Path, err)
 			return
@@ -171,7 +172,20 @@ func (s RestServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 			decoyResponse(w, http.StatusInternalServerError, "couldn't parse template example: template example is not a string")
 			return
 		}
-		tmpl, err := s.Decoy.Decoy.ParseTemplateString(str, decoy.WithData(data))
+		parseOptions := []decoy.ParseTemplateOption{
+			decoy.WithData(data),
+		}
+
+		for _, extraTemplate := range extraTemplates {
+			extraTmpl, err := s.Decoy.TemplateSvc.Get(extraTemplate)
+			if err != nil {
+				decoyResponse(w, http.StatusNotFound, "couldn't find the extra template: %s", err)
+				return
+			}
+			parseOptions = append(parseOptions, decoy.WithExtraTemplate(extraTemplate, extraTmpl.Tmpl))
+		}
+
+		tmpl, err := s.Decoy.Decoy.ParseTemplateString(str, parseOptions...)
 		if err != nil {
 			decoyResponse(w, http.StatusInternalServerError, "couldn't parse template example: %s", err)
 			return
@@ -253,22 +267,23 @@ func responseToStatusCode(response string) int {
 	return status
 }
 
-func resolveExternalValue(decoy *services.Decoy, rawUrl string) (any, error) {
+func resolveExternalValue(decoy *services.Decoy, rawUrl string) (any, []string, error) {
 	url, err := url.Parse(rawUrl)
 	if err != nil {
-		return nil, errors.NewError(errors.ErrInvalidArgument, err, "Malformed external value: %s. Expected a valid URL format.", rawUrl)
+		return nil, nil, errors.NewError(errors.ErrInvalidArgument, err, "Malformed external value: %s. Expected a valid URL format.", rawUrl)
 	}
 
 	switch url.Scheme {
 	case "decoy":
+		extraTemplates := strings.Split(url.Query().Get("extraTemplate"), ",")
 		name := strings.Trim(url.Path, "/")
 		template, err := decoy.TemplateSvc.Get(name)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		return template.Tmpl, nil
+		return template.Tmpl, extraTemplates, nil
 	default:
-		return nil, errors.NewError(errors.ErrInvalidArgument, err, "Unsupported shceme %q, valid schemes are: decoy", url.Scheme)
+		return nil, nil, errors.NewError(errors.ErrInvalidArgument, err, "Unsupported shceme %q, valid schemes are: decoy", url.Scheme)
 	}
 }
 

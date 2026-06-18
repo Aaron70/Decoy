@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/aaron70/decoy/internal/services"
 	"github.com/aaron70/decoy/internal/utils"
@@ -38,7 +39,7 @@ decoy runner store "echo" -c 'echo "{{ .template }}"'
 				if err != nil {
 					return err
 				}
-				config = string(bytes)
+				config = strings.TrimRight(string(bytes), "\n")
 			} else if !cmd.Flags().Changed("config") {
 				config, err = utils.ReadStringFrom(cmd.InOrStdin())
 				if err != nil {

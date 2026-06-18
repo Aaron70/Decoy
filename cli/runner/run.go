@@ -12,6 +12,7 @@ import (
 
 func CreateRunCommand(decoy *services.Decoy) *cobra.Command {
 	var (
+		extraTemplatesNames         []string
 		_type                    services.RunnerType
 		tmpl, file, data, config string
 		stringValues             map[string]string
@@ -84,13 +85,24 @@ decoy run http "http-poster" "user-template" --data '{"env":"test"}' -v region=u
 				jsonData[key] = value
 			}
 
-			return decoy.RunnerSvc.Run(cmd.OutOrStdout(), _type, config, tmpl, jsonData, n, g)
+			extraTemplates := make(map[string]string, len(extraTemplatesNames))
+			for _, extraTemplate := range extraTemplatesNames {
+				extraTmpl, err := decoy.TemplateSvc.Get(extraTemplate)
+				if err != nil {
+					return err
+				}
+				extraTemplates[extraTemplate] = extraTmpl.Tmpl
+			}
+
+			return decoy.RunnerSvc.Run(cmd.OutOrStdout(), _type, config, tmpl, extraTemplates, jsonData, n, g)
 		},
 	}
 
 	command.Flags().StringVarP(&tmpl, "template", "t", "", "The content of the template to parse")
 	command.Flags().StringVarP(&file, "file", "f", "", "The path of the file with the template contents to parse")
 	command.MarkFlagsMutuallyExclusive("template", "file")
+
+	command.Flags().StringSliceVarP(&extraTemplatesNames, "extraTemplate", "x", make([]string, 0, 5), "Extra templates to parse so they can be used (nested) within the main template")
 
 	command.Flags().StringVarP(&data, "data", "d", "{}", "The JSON data to be used within the template")
 	command.Flags().StringToStringVarP(&stringValues, "value", "v", map[string]string{}, "A set of pairs (key=value) to inject into the data")

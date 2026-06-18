@@ -66,7 +66,7 @@ func (svc Runner) Delete(id string) (model.Runner, error) {
 	return svc.repo.Delete(id)
 }
 
-func (svc Runner) Run(w io.Writer, _type RunnerType, config, tmpl string, data any, n int, workers int) error {
+func (svc Runner) Run(w io.Writer, _type RunnerType, config, tmpl string, extraTemplates map[string]string, data any, n int, workers int) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -79,14 +79,16 @@ func (svc Runner) Run(w io.Writer, _type RunnerType, config, tmpl string, data a
 	}
 
 	templateCompiled, err := svc.Decoy.CompileTemplate(tmpl,
-		decoy.WithTemplateNamed("template"),
+		decoy.WithName("template"),
+		decoy.WithExtraTemplates(extraTemplates),
 	)
 	if err != nil {
 		return fmt.Errorf("TemplateParseError: %w", err)
 	}
 
 	runnerCompiled, err := svc.Decoy.CompileTemplate(config,
-		decoy.WithTemplateNamed("runner"),
+		decoy.WithName("runner"),
+		decoy.WithExtraTemplates(extraTemplates),
 	)
 	if err != nil {
 		return fmt.Errorf("RunnerConfigurationParseError: %w", err)
