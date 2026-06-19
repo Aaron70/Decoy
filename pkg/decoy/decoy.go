@@ -19,8 +19,10 @@ import (
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/aaron70/decoy/internal/random"
+	"github.com/aaron70/goaty/cache"
 	"github.com/aaron70/goaty/errors"
 	"github.com/aaron70/goaty/validations"
+	"github.com/cespare/xxhash/v2"
 )
 
 const (
@@ -33,17 +35,21 @@ type Decoy struct {
 	Rand            *rand.Rand
 	randomText      *random.RandomText
 	intIncrementals map[string]*atomic.Int64
-	templates       map[string]*template.Template
+	templates       cache.Cache[uint64, *template.Template]
 	m               sync.RWMutex
 }
 
 func NewDecoy(source rand.Source) (*Decoy, error) {
 	rand := rand.New(source)
+	templatesCache, err := cache.NewTTLCache[uint64, *template.Template](time.Minute * 2, time.Minute)
+	if err != nil {
+		return nil, err
+	}
 	d := &Decoy{
 		Rand:            rand,
 		randomText:      random.NewRandomText(rand, 6),
 		intIncrementals: make(map[string]*atomic.Int64),
-		templates:       make(map[string]*template.Template),
+		templates:       templatesCache,
 	}
 	d.LoadDefaultNgrams()
 	return d, nil
@@ -54,6 +60,10 @@ func NewDecoyWithSeed(seed uint64) (*Decoy, error) {
 		seed = uint64(time.Now().UnixNano())
 	}
 	return NewDecoy(rand.NewPCG(seed, 1))
+}
+
+func (d *Decoy) Close() {
+	d.templates.Close()
 }
 
 func (d *Decoy) LoadDefaultNgrams() {
@@ -430,14 +440,8 @@ func (d *Decoy) compileTemplate(tmpl string, config *parseTemplateConfig) (*temp
 		}
 	}
 
-	if validations.StrIsBlank(config.Name) {
-		return t, nil
-	}
-
-	d.m.Lock()
-	defer d.m.Unlock()
-
-	d.templates[config.Name] = t
+	key := xxhash.Sum64String(fmt.Sprintf("%s%+v",tmpl,config))
+	_ = d.templates.Put(key, t)
 	return t, nil
 }
 
@@ -470,9 +474,8 @@ func (d *Decoy) ParseTemplate(w io.Writer, tmpl string, options ...ParseTemplate
 		}
 	}
 
-	d.m.RLock()
-	template = d.templates[config.Name]
-	d.m.RUnlock()
+	key := xxhash.Sum64String(fmt.Sprintf("%s%+v",tmpl,config))
+	template, _ = d.templates.Get(key)
 	if template == nil {
 		template, err = d.compileTemplate(tmpl, config)
 		if err != nil {

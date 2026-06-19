@@ -47,6 +47,7 @@ func Execute() error {
 	if err != nil {
 		return err
 	}
+	defer cli.Decoy.Close()
 	err = createRootCommand(cli).Execute()
 	if err != nil {
 		return err

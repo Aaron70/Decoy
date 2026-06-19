@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/aaron70/decoy/internal/model"
@@ -170,7 +171,12 @@ func (svc Runner) Run(w io.Writer, _type RunnerType, config, tmpl string, extraT
 				return
 			}
 
-			fmt.Fprintf(w, "%v", record)
+			r := fmt.Sprintf("%v", record)
+			if strings.HasSuffix(r, "\n") {
+				fmt.Fprint(w, r)
+			} else {
+				fmt.Fprintln(w, r)
+			}
 		}
 	})
 
