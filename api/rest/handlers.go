@@ -157,12 +157,12 @@ func (s RestServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-
 		maps.Insert(data, maps.All(map[string]any{
 			"request": map[string]any{
 				"method":       r.Method,
 				"queryParams":  parseMapSliceString(r.URL.Query()),
-				"path":         r.URL.RawPath,
+				"path":         r.URL.Path,
+				"pathParams":   pathParams,
 				"header":       parseMapSliceString(r.Header),
 				"body":         requestBody,
 				"content-Type": requestContentType,
@@ -295,3 +295,4 @@ func getOrAny[T any](options map[string]T, key string) (string, T) {
 	}
 	return key, options[key]
 }
+

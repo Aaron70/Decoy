@@ -521,6 +521,7 @@ func (d *Decoy) ResolveTemplateURL(resolver func(string) (string, error), rawUrl
 	extraTemplatesNames := strings.Split(url.Query().Get(QUERY_PARAM_EXTRA_TEMPLATE), ",")
 	extraTemplates := make(map[string]string, len(extraTemplatesNames))
 	for _, extraTemplateName := range extraTemplatesNames {
+		if validations.StrIsBlank(extraTemplateName) { continue }
 		extraTemplate, err := resolver(extraTemplateName)
 		if err != nil {
 			return TemplateURLReferenced{}, errors.NewError(nil, err, "Couldn't resolve extra template")
