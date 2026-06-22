@@ -20,7 +20,6 @@ import (
 )
 
 func decoyResponse(w http.ResponseWriter, status int, message string, args ...any) {
-	w.WriteHeader(999)
 	w.Header().Add("Content-Type", "application/json")
 	res := struct {
 		Status  int    `json:"status"`
@@ -30,6 +29,7 @@ func decoyResponse(w http.ResponseWriter, status int, message string, args ...an
 		Message: fmt.Sprintf(message, args...),
 	}
 	bytes, _ := json.MarshalIndent(res, "", "  ")
+	w.WriteHeader(999)
 	w.Write(bytes)
 }
 
@@ -142,8 +142,6 @@ func (s RestServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	statusCode := responseToStatusCode(selectedResponse)
-	w.WriteHeader(statusCode)
-	w.Header().Set("Content-Type", selectedContentType)
 	if shouldParse {
 		requestContentType := r.Header.Get("Content-Type")
 		var requestBody any
@@ -187,8 +185,12 @@ func (s RestServer) mockHandler(w http.ResponseWriter, r *http.Request) {
 			decoyResponse(w, http.StatusInternalServerError, "couldn't parse template example: %s", err)
 			return
 		}
+		w.WriteHeader(statusCode)
+		w.Header().Set("Content-Type", selectedContentType)
 		writeBody(w, selectedContentType, tmpl)
 	} else {
+		w.WriteHeader(statusCode)
+		w.Header().Set("Content-Type", selectedContentType)
 		writeBody(w, selectedContentType, value)
 	}
 }
@@ -295,4 +297,3 @@ func getOrAny[T any](options map[string]T, key string) (string, T) {
 	}
 	return key, options[key]
 }
-
